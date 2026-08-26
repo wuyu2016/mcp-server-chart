@@ -32,7 +32,7 @@ services:
       # MCP 认证（可选，不设置则跳过认证）
       - MCP_API_KEY=${MCP_API_KEY:-}
       # 指向本地的 gpt-vis-ssr 渲染服务
-      - VIS_REQUEST_SERVER=http://gpt-vis-ssr:3303/render
+      - VIS_REQUEST_SERVER=http://gpt-vis-ssr:3000/render
     command: ["node", "build/index.js", "--transport", "streamable", "--port", "1122", "--host", "0.0.0.0"]
     ports:
       - "1122:1122"

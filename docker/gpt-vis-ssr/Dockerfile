@@ -9,7 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libjpeg-dev \
     libgif-dev \
     librsvg2-dev \
-    && rm -rf /var/lib/apt/lists/*
+    fonts-wqy-microhei \
+    && rm -rf /var/lib/apt/lists/* && fc-cache -f
 
 WORKDIR /app
 
