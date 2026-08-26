@@ -1,6 +1,7 @@
 import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import express, { type Request, type Response } from "express";
+import { authMiddleware } from "../utils/auth";
 import { logger } from "../utils/logger";
 
 export const startSSEMcpServer = async (
@@ -11,6 +12,7 @@ export const startSSEMcpServer = async (
 ): Promise<void> => {
   const app = express();
   app.use(express.json());
+  app.use(authMiddleware);
 
   const connections: Record<string, SSEServerTransport> = {};
 

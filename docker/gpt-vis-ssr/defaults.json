@@ -1,0 +1,90 @@
+{
+  "global": {
+    "width": 600,
+    "height": 400,
+    "style": {
+      "backgroundColor": "#ffffff",
+      "palette": ["#1783FF", "#00C9C9", "#F0884D", "#D580FF", "#7863FF", "#60C42D", "#F7B934", "#2E9A9A", "#FD9BC2", "#6EC8EB"]
+    },
+    "theme": "default"
+  },
+  "perType": {
+    "line": {
+      "style": {
+        "lineWidth": 2,
+        "startAtZero": false
+      }
+    },
+    "area": {
+      "style": {
+        "startAtZero": false
+      }
+    },
+    "bar": {
+      "style": {}
+    },
+    "column": {
+      "style": {}
+    },
+    "pie": {
+      "style": {}
+    },
+    "scatter": {
+      "style": {}
+    },
+    "radar": {
+      "style": {}
+    },
+    "funnel": {
+      "style": {}
+    },
+    "histogram": {
+      "style": {}
+    },
+    "boxplot": {
+      "style": {}
+    },
+    "violin": {
+      "style": {}
+    },
+    "waterfall": {
+      "style": {}
+    },
+    "dual-axes": {
+      "style": {}
+    },
+    "sankey": {
+      "style": {}
+    },
+    "treemap": {
+      "style": {}
+    },
+    "venn": {
+      "style": {}
+    },
+    "liquid": {
+      "style": {}
+    },
+    "word-cloud": {
+      "style": {}
+    },
+    "spreadsheet": {
+      "style": {}
+    },
+    "mind-map": {
+      "style": {}
+    },
+    "flow-diagram": {
+      "style": {}
+    },
+    "fishbone-diagram": {
+      "style": {}
+    },
+    "network-graph": {
+      "style": {}
+    },
+    "organization-chart": {
+      "style": {}
+    }
+  }
+}

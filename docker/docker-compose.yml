@@ -1,5 +1,23 @@
 name: mcp-server-chart
 services:
+  # ── Chart Rendering Service (gpt-vis-ssr + OSS) ──
+  gpt-vis-ssr:
+    restart: unless-stopped
+    build:
+      context: ./gpt-vis-ssr
+      dockerfile: Dockerfile
+    image: gpt-vis-ssr:latest
+    container_name: gpt-vis-ssr-1
+    environment:
+      - OSS_REGION=${OSS_REGION:-oss-cn-hangzhou}
+      - OSS_BUCKET=${OSS_BUCKET}
+      - OSS_ACCESS_KEY_ID=${OSS_ACCESS_KEY_ID}
+      - OSS_ACCESS_KEY_SECRET=${OSS_ACCESS_KEY_SECRET}
+      - OSS_ENDPOINT=${OSS_ENDPOINT:-}
+      - OSS_PATH_PREFIX=${OSS_PATH_PREFIX:-charts}
+    ports:
+      - "3000:3000"
+
   sse:
     restart: unless-stopped
     build:
@@ -7,8 +25,11 @@ services:
       dockerfile: Dockerfile
     ports:
       - "1123:1123"
-    volumes:
-      - ./sse:/mcp-server-chart/sse
+    environment:
+      - MCP_API_KEY=${MCP_API_KEY:-}
+      - VIS_REQUEST_SERVER=http://gpt-vis-ssr:3000/render
+    depends_on:
+      - gpt-vis-ssr
 
   streamable:
     restart: unless-stopped
@@ -17,5 +38,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "1122:1122"
-    volumes:
-      - ./streamable:/mcp-server-chart/streamable
+    environment:
+      - MCP_API_KEY=${MCP_API_KEY:-}
+      - VIS_REQUEST_SERVER=http://gpt-vis-ssr:3000/render
+    depends_on:
+      - gpt-vis-ssr

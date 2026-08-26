@@ -1,14 +1,40 @@
 services:
+  # ── Chart Rendering Service (gpt-vis-ssr + OSS) ──
+  gpt-vis-ssr:
+    build:
+      context: ./docker/gpt-vis-ssr
+      dockerfile: Dockerfile
+    image: gpt-vis-ssr:latest
+    container_name: gpt-vis-ssr-1
+    restart: unless-stopped
+    environment:
+      # OSS 配置（必填）
+      - OSS_REGION=${OSS_REGION:-oss-cn-hangzhou}
+      - OSS_BUCKET=${OSS_BUCKET}
+      - OSS_ACCESS_KEY_ID=${OSS_ACCESS_KEY_ID}
+      - OSS_ACCESS_KEY_SECRET=${OSS_ACCESS_KEY_SECRET}
+      # OSS Endpoint（可选，默认自动从 region 推导）
+      - OSS_ENDPOINT=${OSS_ENDPOINT:-}
+      # OSS 存储路径前缀（可选，默认 charts）
+      - OSS_PATH_PREFIX=${OSS_PATH_PREFIX:-charts}
+    ports:
+      - "3303:3000"
+
+  # ── MCP Server ──
   mcp-server-chart:
     build:
-      context: .          # Dockerfile dir
+      context: .
       dockerfile: Dockerfile
     image: mcp-server-chart:stable
     container_name: mcp-server-chart-1
-    # environment:
-    #   - VIS_REQUEST_SERVER=http://127.0.0.1:3000/render  # Notice: You can use AntV's project GPT-Vis-SSR to deploy an HTTP service in a private environment, and then pass the URL address through env VIS_REQUEST_SERVER.
-    command: ["node", "build/index.js", "--transport", "sse", "--port", "1122", "--host", "0.0.0.0"]
+    restart: unless-stopped
+    environment:
+      # MCP 认证（可选，不设置则跳过认证）
+      - MCP_API_KEY=${MCP_API_KEY:-}
+      # 指向本地的 gpt-vis-ssr 渲染服务
+      - VIS_REQUEST_SERVER=http://gpt-vis-ssr:3303/render
+    command: ["node", "build/index.js", "--transport", "streamable", "--port", "1122", "--host", "0.0.0.0"]
     ports:
       - "1122:1122"
-# networks:
-#     - internal
+    depends_on:
+      - gpt-vis-ssr

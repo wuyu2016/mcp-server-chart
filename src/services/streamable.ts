@@ -2,6 +2,7 @@ import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import cors from "cors";
 import express, { type Request, type Response } from "express";
+import { authMiddleware } from "../utils/auth";
 import { logger } from "../utils/logger";
 
 export const startHTTPStreamableServer = async (
@@ -13,6 +14,7 @@ export const startHTTPStreamableServer = async (
   const app = express();
   app.use(express.json());
   app.use(cors({ origin: "*", exposedHeaders: ["Mcp-Session-Id"] }));
+  app.use(authMiddleware);
 
   app.post(endpoint, async (req: Request, res: Response) => {
     // In stateless mode, create a new transport for each request to prevent

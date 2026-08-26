@@ -20,6 +20,7 @@ This is a TypeScript-based MCP server that provides chart generation capabilitie
   - [SERVICE_ID](#%EF%B8%8F-generate-records)
   - [DISABLED_TOOLS](#%EF%B8%8F-tool-filtering)
 - [📠 Private Deployment](#-private-deployment)
+  - [Private Deployment with OSS](#-private-deployment-with-oss)
 - [🗺️ Generate Records](#%EF%B8%8F-generate-records)
 - [🎛️ Tool Filtering](#%EF%B8%8F-tool-filtering)
 - [🔨 Development](#-development)
@@ -147,6 +148,17 @@ Then you can access the server at:
 - SSE transport: `http://localhost:1123/sse`
 - Streamable transport: `http://localhost:1122/mcp`
 
+### Docker deploy with private rendering service
+
+The project includes a built-in deployment solution with **gpt-vis-ssr** + **OSS** for fully private chart rendering. See [Private Deployment with OSS](#-private-deployment-with-oss) for details.
+
+```bash
+# From project root, create .env file with OSS credentials
+cp .env.example .env
+# Edit .env with your OSS config, then start
+docker compose up -d
+```
+
 ## 🎮 CLI Options
 
 You can also use the following CLI options when running the MCP server. Command options by run cli with `-H`.
@@ -169,6 +181,7 @@ Options:
 | Variable             | Description                                                | Default                                      | Example                                       |
 | -------------------- | :--------------------------------------------------------- | -------------------------------------------- | --------------------------------------------- |
 | `VIS_REQUEST_SERVER` | Custom chart generation service URL for private deployment | `https://antv-studio.alipay.com/api/gpt-vis` | `https://your-server.com/api/chart`           |
+| `MCP_API_KEY`        | API key for HTTP transports (SSE/streamable). Clients send `Authorization: Bearer <key>`. When unset, auth is disabled. | - | `sk-abc123` |
 | `SERVICE_ID`         | Service identifier for chart generation records            | -                                            | `your-service-id-123`                         |
 | `DISABLED_TOOLS`     | Comma-separated list of tool names to disable              | -                                            | `generate_fishbone_diagram,generate_mind_map` |
 
@@ -201,6 +214,129 @@ You can use AntV's project [GPT-Vis-SSR](https://github.com/antvis/GPT-Vis/tree/
 
 > [!NOTE]
 > The private deployment solution currently does not support geographic visualization chart generation include 3 tools: `geographic-district-map`, `geographic-path-map`, `geographic-pin-map`.
+
+### 📠 Private Deployment with OSS
+
+For production-grade private deployment, the project provides an integrated **gpt-vis-ssr** rendering service that uploads chart images to **Alibaba Cloud OSS**. This eliminates the need to manage local image storage and ensures high availability.
+
+#### Architecture
+
+```
+┌──────────────┐     POST chart config     ┌──────────────────┐     upload image     ┌──────────┐
+│ MCP Client   │ ◄─────────── URL ───────── │ gpt-vis-ssr      │ ──────────────────► │ OSS      │
+│ (Claude,     │                            │ (:3000)          │                     │ Bucket   │
+│  Cursor,     │     ┌───────────────────┐  │                  │                     └──────────┘
+│  etc.)       │     │ mcp-server-chart   │  │ @antv/gpt-vis-ssr│
+│              │     │ (:1122 streamable) │  │ ali-oss          │
+│              │     │ (:1123 sse)        │  │                  │
+└──────────────┘     └───────────────────┘  └──────────────────┘
+```
+
+#### Files
+
+```
+docker/gpt-vis-ssr/
+├── Dockerfile           # Node.js 20 + canvas native dependencies
+├── package.json         # @antv/gpt-vis-ssr, ali-oss, express
+├── server.js            # Express server: render → upload OSS → return URL
+├── defaults.json        # Default chart style config (see below)
+├── register.cjs         # CSS import hook for SSR compatibility
+└── .dockerignore
+.env.example             # OSS configuration template
+```
+
+#### Default Style Configuration
+
+You can customize chart default styles via `docker/gpt-vis-ssr/defaults.json` without modifying code. The merge priority is: **global → perType → MCP request body** (each level overrides the previous).
+
+```json
+{
+  "global": {
+    "width": 600,
+    "height": 400,
+    "theme": "default",
+    "style": {
+      "backgroundColor": "#ffffff",
+      "palette": ["#1783FF", "#F08F56", "#D580FF", "#00C9C9", "#7863FF"]
+    }
+  },
+  "perType": {
+    "line": {
+      "style": { "lineWidth": 2, "startAtZero": false }
+    },
+    "bar": {
+      "style": {}
+    }
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `global` | `object` | Defaults applied to all chart types |
+| `global.style` | `object` | Global style overrides (palette, backgroundColor, etc.) |
+| `global.theme` | `string` | `"default"`, `"academy"`, or `"dark"` |
+| `perType.<chart>` | `object` | Per-chart-type overrides, merged on top of `global` |
+| `perType.<chart>.style` | `object` | Chart-specific style (e.g. `lineWidth` for `line`) |
+
+After editing `defaults.json`, rebuild and restart:
+
+```bash
+docker compose build gpt-vis-ssr && docker compose up -d
+```
+
+#### Quick Start
+
+1. **Configure OSS credentials** in `.env` at project root:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env`:
+
+```env
+OSS_REGION=oss-cn-hangzhou
+OSS_BUCKET=my-chart-bucket
+OSS_ACCESS_KEY_ID=LTAI5tXXXXXXXXXXXX
+OSS_ACCESS_KEY_SECRET=your-access-key-secret
+# OSS_ENDPOINT=https://oss-cn-hangzhou.aliyuncs.com  (optional)
+# OSS_PATH_PREFIX=charts  (optional, defaults to "charts")
+```
+
+2. **Start all services**:
+
+```bash
+# From project root — starts gpt-vis-ssr + mcp-server-chart
+docker compose up -d
+
+# Or from docker/ directory — starts gpt-vis-ssr + sse + streamable
+cd docker
+docker compose up -d
+```
+
+3. **Verify**:
+
+```bash
+curl http://localhost:3000/health
+# {"status":"ok"}
+```
+
+Then use the MCP server at `http://localhost:1122/mcp` (streamable) or `http://localhost:1123/sse` (SSE).
+
+#### Environment Variables
+
+| Variable              | Required | Default            | Description                                |
+| --------------------- | -------- | ------------------ | ------------------------------------------ |
+| `OSS_REGION`          | Yes      | `oss-cn-hangzhou`  | OSS bucket region                          |
+| `OSS_BUCKET`          | Yes      | -                  | OSS bucket name                            |
+| `OSS_ACCESS_KEY_ID`   | Yes      | -                  | Alibaba Cloud AccessKey ID                 |
+| `OSS_ACCESS_KEY_SECRET` | Yes    | -                  | Alibaba Cloud AccessKey Secret             |
+| `OSS_ENDPOINT`        | No       | Auto from region   | Custom OSS endpoint                        |
+| `OSS_PATH_PREFIX`     | No       | `charts`           | Object key prefix in OSS bucket            |
+
+> [!TIP]
+> You can also deploy the rendering service separately (e.g., on Alibaba Cloud Function Compute or ECS) and point `VIS_REQUEST_SERVER` to it from any MCP client configuration.
 
 ### 🗺️ Generate Records
 
