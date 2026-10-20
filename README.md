@@ -302,6 +302,8 @@ OSS_ACCESS_KEY_ID=LTAI5tXXXXXXXXXXXX
 OSS_ACCESS_KEY_SECRET=your-access-key-secret
 # OSS_ENDPOINT=https://oss-cn-hangzhou.aliyuncs.com  (optional)
 # OSS_PATH_PREFIX=charts  (optional, defaults to "charts")
+# OSS_SIGNED_URL_ENABLED=false  (optional, "true" returns pre-signed URLs)
+# OSS_SIGNED_URL_EXPIRES=3600  (optional, seconds, only used when signing is enabled)
 ```
 
 2. **Start all services**:
@@ -334,6 +336,11 @@ Then use the MCP server at `http://localhost:1122/mcp` (streamable) or `http://l
 | `OSS_ACCESS_KEY_SECRET` | Yes    | -                  | Alibaba Cloud AccessKey Secret             |
 | `OSS_ENDPOINT`        | No       | Auto from region   | Custom OSS endpoint                        |
 | `OSS_PATH_PREFIX`     | No       | `charts`           | Object key prefix in OSS bucket            |
+| `OSS_SIGNED_URL_ENABLED` | No    | `false`            | `true` returns a pre-signed URL instead of the public bucket URL |
+| `OSS_SIGNED_URL_EXPIRES` | No    | `3600`             | Pre-signed URL lifetime in seconds (only used when signing is enabled) |
+
+> [!NOTE]
+> With `OSS_SIGNED_URL_ENABLED=false` (default) the rendering service returns the public bucket URL, which requires the bucket/object to be publicly readable. Set it to `true` for private-read buckets — the returned link expires after `OSS_SIGNED_URL_EXPIRES` seconds.
 
 > [!TIP]
 > You can also deploy the rendering service separately (e.g., on Alibaba Cloud Function Compute or ECS) and point `VIS_REQUEST_SERVER` to it from any MCP client configuration.

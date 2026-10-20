@@ -33,6 +33,16 @@ const ossClient = new OSS({
 
 const OSS_PATH_PREFIX = process.env.OSS_PATH_PREFIX || "charts";
 
+// ── Image URL mode ──
+// false (default): public bucket + object path (result.url from put())
+// true: OSS pre-signed URL, valid for OSS_SIGNED_URL_EXPIRES seconds
+const OSS_SIGNED_URL_ENABLED =
+  (process.env.OSS_SIGNED_URL_ENABLED || "false").toLowerCase() === "true";
+const OSS_SIGNED_URL_EXPIRES = parseInt(
+  process.env.OSS_SIGNED_URL_EXPIRES || "3600",
+  10,
+);
+
 /**
  * Merge defaults with request params.
  * Priority (low → high): global → perType → request body
@@ -80,10 +90,12 @@ app.post("/render", async (req, res) => {
 
     const result = await ossClient.put(ossPath, buffer);
 
-    // Build public URL
-    const publicUrl = result.url;
+    // Build the image URL returned to the user
+    const imageUrl = OSS_SIGNED_URL_ENABLED
+      ? ossClient.signatureUrl(ossPath, { expires: OSS_SIGNED_URL_EXPIRES })
+      : result.url;
 
-    res.json({ success: true, resultObj: publicUrl });
+    res.json({ success: true, resultObj: imageUrl });
   } catch (e) {
     console.error("Render error:", e);
     res.json({ success: false, errorMessage: e.message || "Unknown error" });
@@ -98,4 +110,9 @@ app.get("/health", (_req, res) => {
 const PORT = parseInt(process.env.PORT || "3000", 10);
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`GPT-Vis-SSR server listening on port ${PORT}`);
+  console.log(
+    OSS_SIGNED_URL_ENABLED
+      ? `Image URL mode: signed (expires in ${OSS_SIGNED_URL_EXPIRES}s)`
+      : "Image URL mode: public bucket URL",
+  );
 });

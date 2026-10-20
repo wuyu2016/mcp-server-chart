@@ -17,6 +17,10 @@ services:
       - OSS_ENDPOINT=${OSS_ENDPOINT:-}
       # OSS 存储路径前缀（可选，默认 charts）
       - OSS_PATH_PREFIX=${OSS_PATH_PREFIX:-charts}
+      # 图片返回形式（可选）：false=公开桶+路径（默认），true=预签名链接
+      - OSS_SIGNED_URL_ENABLED=${OSS_SIGNED_URL_ENABLED:-false}
+      # 预签名链接有效期，单位秒（可选，默认 3600）
+      - OSS_SIGNED_URL_EXPIRES=${OSS_SIGNED_URL_EXPIRES:-3600}
     ports:
       - "3303:3000"
 
