@@ -150,7 +150,7 @@ Then you can access the server at:
 
 ### Docker deploy with private rendering service
 
-The project includes a built-in deployment solution with **gpt-vis-ssr** + **OSS** for fully private chart rendering. See [Private Deployment with OSS](#-private-deployment-with-oss) for details.
+The project includes a built-in deployment solution with **gpt-vis-ssr** + **OSS** for fully private chart rendering. See [Private Deployment with OSS](#-private-deployment-with-oss) for details, and [DEPLOYMENT.md](./DEPLOYMENT.md) for the full deployment guide (Chinese).
 
 ```bash
 # From project root, create .env file with OSS credentials
