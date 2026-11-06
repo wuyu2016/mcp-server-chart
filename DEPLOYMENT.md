@@ -326,6 +326,8 @@ node build/index.js -t streamable -h 0.0.0.0 -p 1122
 | `OSS_SIGNED_URL_ENABLED` | 否 | `false` | `false` = 公开桶直链；**`true` = 返回 OSS 预签名链接** |
 | `OSS_SIGNED_URL_EXPIRES` | 否 | `3600` | 预签名链接有效期（秒），仅 `OSS_SIGNED_URL_ENABLED=true` 时生效 |
 | `PORT` | 否 | `3000` | 渲染服务监听端口（监听 `0.0.0.0`） |
+| `RADAR_ALIGN` | 否 | 不设置（渲染库默认各维独立刻度） | 雷达图调用方**没传** `align` 时的默认值。`true`：各维共用这批数据里的最大值；`false`：各维独立缩放。请求体里的 `align` 优先 |
+| `RADAR_MAX` | 否 | 不设置（不封顶） | 雷达图调用方和 `defaults.json` **都没写** `max` 时的统一上限，必须大于 0。各维刻度为 `0..RADAR_MAX`。优先级：请求体 `max` > `defaults.json` 的 `radar.max` > 本变量 |
 
 > 关于 `OSS_REGION` 的取值：`.env.example` 与 README 使用 `oss-cn-hangzhou` 这种带 `oss-` 前缀的写法（推荐）。
 > 若同时设置了 `OSS_ENDPOINT`，则以 Endpoint 为准。
@@ -566,6 +568,21 @@ global  →  perType.<chart>  →  MCP 请求体
 | `global.theme` | string | `default` / `academy` / `dark` |
 | `global.style.palette` | array | 全局色板 |
 | `perType.<chart>` | object | 按图表类型覆盖，键为图表类型（`line`、`bar`、`pie`…） |
+| `perType.<chart>.max` | number | 数值轴统一上限，必须大于 0。写在类型配置的顶层，不要放进 `style`。请求体里的 `max` 优先 |
+
+`max` 会在画图前写进坐标轴：`nice` 关闭，刻度停在这个数上，不会再向上取整。
+
+适用：`radar`（每一维都是 `0..max`）、`line`、`area`、`column`、`bar`、`scatter`（只限制 y）、`histogram`、`boxplot`、`violin`、`waterfall`。
+
+不适用：饼图、桑基、矩形树图、词云、水球、地图、关系图，以及左右轴单位不同的 `dual-axes`。配了也会被忽略，启动日志里会提示。
+
+```json
+"radar": { "max": 100 }
+```
+
+雷达图的固定上限优先读环境变量 `RADAR_MAX`（例如 `100`），见 [§7.2](#72-渲染服务gpt-vis-ssr)。请求体或这里的 `radar.max` 会盖过它。其它图表没有对应环境变量，仍用本文件的 `max`。
+
+没配任何 `max` 时，各维要不要对齐到**这批数据的最大值**由 `RADAR_ALIGN` 决定。配了 `max` 或 `RADAR_MAX` 之后，外圈固定为这个数，不再跟着数据最大值走；此时即使 `align` 为 false，各维也共用该上限。
 
 当前文件内置了 24 个 `perType` 条目：`line`、`area`、`bar`、`column`、`pie`、`scatter`、
 `radar`、`funnel`、`histogram`、`boxplot`、`violin`、`waterfall`、`dual-axes`、`sankey`、
@@ -694,6 +711,8 @@ docker compose logs gpt-vis-ssr | grep "Image URL mode"            # Linux/macOS
 | `docker/docker-compose.yml` | 渲染服务 + SSE + streamable 三服务 |
 | `.env.example` | 全部环境变量模板（含图片模式开关） |
 | `docker/gpt-vis-ssr/server.js` | 渲染 → 上传 OSS → 生成 URL 的核心逻辑 |
+| `docker/gpt-vis-ssr/scale-max.js` | 数值轴 `max`、`RADAR_ALIGN`、`RADAR_MAX` |
+| `docker/gpt-vis-ssr/patch-scale.js` | 在画图前把 `max` 写进坐标轴 |
 | `docker/gpt-vis-ssr/Dockerfile` | 渲染服务镜像（Canvas 原生依赖 + 中文字体） |
 | `docker/gpt-vis-ssr/defaults.json` | 图表默认样式 |
 | `Dockerfile` | MCP 服务镜像（多阶段，非 root 用户 `appuser`，`EXPOSE 1122`） |

@@ -19,7 +19,7 @@ COPY package.json ./
 RUN npm install --no-audit --no-fund
 
 # Copy server code and config
-COPY server.js register.cjs defaults.json ./
+COPY server.js register.cjs patch-scale.js scale-max.js defaults.json ./
 
 EXPOSE 3000
 

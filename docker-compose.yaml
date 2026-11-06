@@ -21,6 +21,10 @@ services:
       - OSS_SIGNED_URL_ENABLED=${OSS_SIGNED_URL_ENABLED:-false}
       # 预签名链接有效期，单位秒（可选，默认 3600）
       - OSS_SIGNED_URL_EXPIRES=${OSS_SIGNED_URL_EXPIRES:-3600}
+      # 雷达图未传 align 时的默认值。true=各维共用数据最大值
+      - RADAR_ALIGN=${RADAR_ALIGN:-false}
+      # 雷达图未传 max 时的统一上限，须大于 0。留空表示不设固定上限
+      - RADAR_MAX=${RADAR_MAX:-}
     ports:
       - "3303:3000"
 

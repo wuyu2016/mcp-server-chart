@@ -239,6 +239,8 @@ docker/gpt-vis-ssr/
 ├── Dockerfile           # Node.js 20 + canvas native dependencies
 ├── package.json         # @antv/gpt-vis-ssr, ali-oss, express
 ├── server.js            # Express server: render → upload OSS → return URL
+├── scale-max.js         # Value-axis max and RADAR_ALIGN helpers
+├── patch-scale.js       # Applies max onto the chart spec before paint
 ├── defaults.json        # Default chart style config (see below)
 ├── register.cjs         # CSS import hook for SSR compatibility
 └── .dockerignore
@@ -278,6 +280,24 @@ You can customize chart default styles via `docker/gpt-vis-ssr/defaults.json` wi
 | `global.theme` | `string` | `"default"`, `"academy"`, or `"dark"` |
 | `perType.<chart>` | `object` | Per-chart-type overrides, merged on top of `global` |
 | `perType.<chart>.style` | `object` | Chart-specific style (e.g. `lineWidth` for `line`) |
+| `perType.<chart>.max` | `number` | Shared ceiling for the value axis (`> 0`). Top-level on the chart type, not inside `style`. A `max` on the render request overrides it |
+
+`max` is applied before drawing. Nice-number rounding is disabled, so the axis stops on that value.
+
+Supported: `radar` (every spoke is `0..max`), `line`, `area`, `column`, `bar`, `scatter` (y only), `histogram`, `boxplot`, `violin`, `waterfall`.
+
+Not applied: pie, sankey, treemap, word cloud, liquid, maps, diagrams, and `dual-axes` (the two axes use different units).
+
+```json
+"radar": { "max": 100 }
+```
+
+Radar reads two render-service environment variables when the request omits the field:
+
+- `RADAR_MAX`: shared ceiling for every spoke (`0..RADAR_MAX`). Unset means no fixed ceiling. Priority is request `max`, then `defaults.json` `radar.max`, then `RADAR_MAX`.
+- `RADAR_ALIGN` (`true` / `false`): when `align` is omitted, `true` makes every spoke share **the maximum in that dataset**. An explicit `align` wins. A configured max still caps every spoke even when `align` is false.
+
+Other chart types still take `max` only from `defaults.json` or the request.
 
 After editing `defaults.json`, rebuild and restart:
 

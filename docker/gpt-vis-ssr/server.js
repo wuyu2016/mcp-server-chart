@@ -3,8 +3,20 @@ import cors from "cors";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { render } from "@antv/gpt-vis-ssr";
 import OSS from "ali-oss";
+import { patchCreateChart, scaleContext } from "./patch-scale.js";
+import {
+  applyRadarAlignDefault,
+  applyRadarMaxDefault,
+  parseMax,
+  readRadarAlignEnv,
+  readRadarMaxEnv,
+  supportsScaleMax,
+} from "./scale-max.js";
+
+// Patch before the chart library loads, so its createChart binding sees the wrapper.
+patchCreateChart();
+const { render } = await import("@antv/gpt-vis-ssr");
 
 const app = express();
 app.use(express.json({ limit: "10mb" }));
@@ -43,6 +55,11 @@ const OSS_SIGNED_URL_EXPIRES = parseInt(
   10,
 );
 
+// Unset means "do not override"; the chart library then keeps align=false.
+const RADAR_ALIGN_DEFAULT = readRadarAlignEnv();
+// Unset means radar spokes stay on the data scale. Request and defaults.json win.
+const RADAR_MAX_DEFAULT = readRadarMaxEnv();
+
 /**
  * Merge defaults with request params.
  * Priority (low → high): global → perType → request body
@@ -76,11 +93,26 @@ app.post("/render", async (req, res) => {
       return res.json({ success: false, errorMessage: "Missing 'type' field" });
     }
 
-    // Merge defaults with request params
-    const merged = mergeOptions(type, rest);
+    // Merge defaults with request params.
+    // align: request > defaults.json > RADAR_ALIGN > library default (false)
+    // radar max: request > defaults.json > RADAR_MAX > no fixed ceiling
+    const merged = applyRadarMaxDefault(
+      type,
+      applyRadarAlignDefault(
+        type,
+        mergeOptions(type, rest),
+        RADAR_ALIGN_DEFAULT,
+      ),
+      RADAR_MAX_DEFAULT,
+    );
+    const scaleMax = supportsScaleMax(type) ? parseMax(merged.max) : undefined;
 
     // Render chart to image buffer
-    const vis = await render({ type, data, ...merged });
+    const renderChart = () => render({ type, data, ...merged });
+    const vis =
+      scaleMax == null
+        ? await renderChart()
+        : await scaleContext.run({ max: scaleMax }, renderChart);
     const buffer = vis.toBuffer();
     vis.destroy();
 
@@ -108,6 +140,28 @@ app.get("/health", (_req, res) => {
 });
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
+function logScaleConfig() {
+  if (RADAR_ALIGN_DEFAULT !== undefined) {
+    console.log(`Radar align default (RADAR_ALIGN): ${RADAR_ALIGN_DEFAULT}`);
+  }
+  if (process.env.RADAR_MAX != null && String(process.env.RADAR_MAX).trim() !== "") {
+    console.log(
+      RADAR_MAX_DEFAULT == null
+        ? `RADAR_MAX=${process.env.RADAR_MAX} is invalid; expected a number greater than 0`
+        : `Radar scale max (RADAR_MAX): ${RADAR_MAX_DEFAULT}`,
+    );
+  }
+  for (const [type, cfg] of Object.entries(configDefaults.perType || {})) {
+    const max = parseMax(cfg?.max);
+    if (max == null) continue;
+    console.log(
+      supportsScaleMax(type)
+        ? `Scale max for ${type}: ${max}`
+        : `Scale max for ${type} is set to ${max} but this chart type has no shared value axis; it will be ignored`,
+    );
+  }
+}
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`GPT-Vis-SSR server listening on port ${PORT}`);
   console.log(
@@ -115,4 +169,5 @@ app.listen(PORT, "0.0.0.0", () => {
       ? `Image URL mode: signed (expires in ${OSS_SIGNED_URL_EXPIRES}s)`
       : "Image URL mode: public bucket URL",
   );
+  logScaleConfig();
 });
